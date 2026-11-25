@@ -75,7 +75,7 @@
   .photos span{color:var(--muted)}
   .scanbar .row{flex-wrap:wrap}
   .dup{font-size:12px;color:var(--warn);font-weight:600;margin-top:2px}
-  body{background:var(--page)}
+  html,body{background:var(--page)}
   .pagetag{font-size:19px;font-weight:800;letter-spacing:.2px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
   .pagetag .pill{background:#fff;color:var(--brand);border-radius:999px;padding:2px 10px;font-size:13px;font-weight:800}
   .scanhead{background:var(--brand);color:#fff;font-weight:800;font-size:17px;padding:8px 12px;text-align:center}
