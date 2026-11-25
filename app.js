@@ -4,7 +4,7 @@ const APP = Object.assign({ mode: "warehouse", label: "", photos: false, photoRe
 /* ================= SETTINGS (owner edits this) ================= */
 const CONFIG = {
   // Paste the Web app URL from Google Apps Script (ends with /exec):
-  SHEET_URL: "https://script.google.com/macros/s/AKfycbw85eDr4aIDGKLlAnrfQsnFKe77BN2KdB0m3shGVmoKn6OSULPA_xwoP61jQ3ElRrrS/exec",
+  SHEET_URL: "https://script.google.com/macros/s/AKfycbwm_H_4cm4yr8fexgo6WphoPPd3wViwTKbNdxHWcwpvR7NnmalIuKDnf7s-GmtmvU8h/exec",
 };
 /* =============================================================== */
 
