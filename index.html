@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f766e">
-<title>Scanner</title>
+<title>סורק משלוחים</title>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
@@ -14,7 +14,7 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--ink);
-    font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,"Noto Sans Hebrew",sans-serif;
     -webkit-tap-highlight-color:transparent}
   header{position:sticky;top:0;z-index:5;background:var(--brand);color:var(--brand-ink);
     padding:calc(10px + env(safe-area-inset-top)) 14px 10px}
@@ -39,7 +39,7 @@
     display:flex;gap:10px;align-items:center}
   li.item.flash{animation:flash 1s}
   @keyframes flash{from{background:#d7f3ee}to{background:var(--card)}}
-  .code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:16px;font-weight:600;word-break:break-all}
+  .code{direction:ltr;unicode-bidi:isolate;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:16px;font-weight:600;word-break:break-all}
   .meta{font-size:12px;color:var(--muted);margin-top:2px}
   .note{font-size:13px;color:var(--ink);margin-top:3px}
   .qty{display:flex;align-items:center;gap:4px}
@@ -66,27 +66,32 @@
   #toast.show{opacity:1}
   .setup{background:#fff7e6;border:1px solid #f3d49b;color:#6b4200;border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:12px}
   .hidden{display:none}
+  .howto{background:#e7f5f3;border:1px solid #b9e2dc;border-radius:12px;padding:10px 12px;font-size:15px;margin-bottom:12px}
+  .howto b{color:var(--brand)}
+  #scanMsg.warn{color:#fcd34d;font-weight:700}
+  .dup{font-size:12px;color:var(--warn);font-weight:600;margin-top:2px}
 </style>
 </head>
 <body>
 
 <header>
   <div class="row">
-    <div class="grow"><select id="listSel" aria-label="Current list"></select></div>
-    <button class="hbtn" id="newList" aria-label="New list">＋ New</button>
-    <button class="hbtn" id="listMenu" aria-label="List options">⋯</button>
+    <div class="grow"><select id="listSel" aria-label="רשימה נוכחית"></select></div>
+    <button class="hbtn" id="newList" aria-label="רשימה חדשה">＋ חדשה</button>
+    <button class="hbtn" id="listMenu" aria-label="אפשרויות רשימה">⋯</button>
   </div>
   <div id="status"><span class="dot"></span><span id="statusText"></span></div>
 </header>
 
 <main>
-  <div id="setupNote" class="setup hidden">Online saving isn't set up yet. Scans are kept on this phone only. (Owner: paste your Google Sheet link into <b>SHEET_URL</b> in index.html.)</div>
+  <div id="setupNote" class="setup hidden">השמירה המקוונת עדיין לא הוגדרה – הסריקות נשמרות בטלפון הזה בלבד.</div>
+  <div class="howto">סרקו את הברקוד של <b>מספר האספקה</b> או של <b>החבילה הזרה</b>.<br>אם הברקוד לא נקרא – צלמו אותו או הקלידו את המספר ידנית.</div>
 
-  <button class="scanbtn" id="scanBtn">📷 Scan</button>
+  <button class="scanbtn" id="scanBtn">📷 סריקה</button>
 
   <form class="manual row" id="manualForm" autocomplete="off">
-    <input class="grow" id="manualInput" inputmode="text" placeholder="Or type a barcode…" enterkeyhint="done">
-    <button class="btn" type="submit">Add</button>
+    <input class="grow" id="manualInput" inputmode="text" placeholder="או הקלידו מספר אספקה / חבילה…" dir="auto" enterkeyhint="done">
+    <button class="btn" type="submit">הוספה</button>
   </form>
 
   <div class="summary"><span id="countText"></span><span id="totalText"></span></div>
@@ -96,12 +101,12 @@
 <footer>
   <div class="inner">
     <div class="row" style="margin-bottom:8px">
-      <button class="btn primary" id="shareBtn" style="flex:1">Send Excel (WhatsApp / Mail…)</button>
+      <button class="btn primary" id="shareBtn" style="flex:1">שליחת אקסל (וואטסאפ / מייל…)</button>
     </div>
     <div class="row">
-      <button class="btn" id="waBtn">WhatsApp text</button>
-      <button class="btn" id="mailBtn">Email text</button>
-      <button class="btn" id="dlBtn">Download</button>
+      <button class="btn" id="waBtn">וואטסאפ כטקסט</button>
+      <button class="btn" id="mailBtn">מייל כטקסט</button>
+      <button class="btn" id="dlBtn">הורדה</button>
     </div>
   </div>
 </footer>
@@ -109,12 +114,12 @@
 <div id="scanView" hidden>
   <div id="reader"></div>
   <div class="scanbar">
-    <div id="scanMsg">Point the camera at a barcode</div>
+    <div id="scanMsg">כוונו את המצלמה לברקוד של מספר האספקה או החבילה הזרה</div>
     <div class="row">
-      <label class="btn" style="text-align:center">📸 Take photo
+      <label class="btn" style="text-align:center">📸 צילום
         <input id="photoInput" type="file" accept="image/*" capture="environment" hidden>
       </label>
-      <button class="btn primary" id="doneBtn">Done</button>
+      <button class="btn primary" id="doneBtn">סיום</button>
     </div>
   </div>
 </div>
@@ -135,9 +140,13 @@ const uid = () => (crypto.randomUUID ? crypto.randomUUID()
   : Date.now().toString(36) + Math.random().toString(36).slice(2));
 
 function newListObj(name){ return { id: uid(), name, created: new Date().toISOString(), items: [] }; }
+const pad = n => String(n).padStart(2, "0");
+const fmtDate = iso => { const d = new Date(iso); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`; };
+const fmtTime = iso => { const d = new Date(iso); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
+const fmtStamp = iso => fmtDate(iso) + " " + fmtTime(iso);
 function defaultListName(){
-  const d = new Date();
-  return d.toLocaleDateString() + " " + d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+  const d = new Date().toISOString();
+  return "רשימה " + fmtDate(d) + " " + fmtTime(d).slice(0,5);
 }
 function load(){
   try{
@@ -148,7 +157,7 @@ function load(){
   return { device: uid().slice(0,8), name: "", lists: [l], current: l.id, deleted: [] };
 }
 let state = load();
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){ toast("Phone storage is full"); } }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){ toast("אין מספיק מקום בטלפון"); } }
 function cur(){ return state.lists.find(l => l.id === state.current) || state.lists[0]; }
 function touch(it){ it.v = (it.v || 0) + 1; it.updatedAt = new Date().toISOString(); }
 
@@ -162,9 +171,9 @@ function addCode(raw, format){
   let it;
   if (idx >= 0){
     it = list.items.splice(idx, 1)[0];
-    it.qty++; touch(it);
+    it.qty++; it.lastScannedAt = new Date().toISOString(); touch(it);
   } else {
-    it = { id: uid(), code, format: format || "Manual", qty: 1, note: "",
+    it = { id: uid(), code, format: format || "ידני", qty: 1, note: "",
            scannedAt: new Date().toISOString(), v: 1, sv: 0 };
   }
   list.items.unshift(it);
@@ -177,16 +186,16 @@ function setQty(it, q){
   it.qty = q; touch(it); save(); render(); scheduleSync();
 }
 function removeItem(it){
-  if (!confirm(`Remove ${it.code}?`)) return;
+  if (!confirm(`למחוק את ${it.code}?`)) return;
   const list = cur();
   list.items = list.items.filter(i => i !== it);
   state.deleted.push(it.id);
   save(); render(); scheduleSync();
 }
 function itemMenu(it){
-  const n = prompt(`Note for ${it.code} (leave empty to clear).\nType DELETE to remove it.`, it.note || "");
+  const n = prompt(`הערה עבור ${it.code} (השאירו ריק כדי לנקות).\nהקלידו מחק כדי להסיר את השורה.`, it.note || "");
   if (n === null) return;
-  if (n.trim().toUpperCase() === "DELETE"){ removeItem(it); return; }
+  if (["מחק","DELETE"].includes(n.trim().toUpperCase())){ removeItem(it); return; }
   it.note = n.trim(); touch(it); save(); render(); scheduleSync();
 }
 
@@ -204,7 +213,7 @@ function render(){
   ul.innerHTML = "";
   if (!list.items.length){
     const e = document.createElement("li"); e.className = "empty";
-    e.textContent = "No barcodes yet. Tap Scan to start.";
+    e.textContent = "עדיין אין סריקות. לחצו על סריקה כדי להתחיל.";
     ul.appendChild(e);
   }
   list.items.forEach(it => {
@@ -213,9 +222,11 @@ function render(){
     const info = document.createElement("div"); info.className = "grow";
     const c = document.createElement("div"); c.className = "code"; c.textContent = it.code;
     const m = document.createElement("div"); m.className = "meta";
-    m.textContent = new Date(it.scannedAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})
-      + " · " + (it.format || "") + (it.v !== it.sv && CONFIG.SHEET_URL ? " · waiting to save" : "");
+    m.textContent = "🕒 " + fmtStamp(it.scannedAt)
+      + (it.v !== it.sv && CONFIG.SHEET_URL ? " · ממתין לשמירה" : "");
     info.append(c, m);
+    if (it.qty > 1 && it.lastScannedAt){ const d = document.createElement("div"); d.className = "dup";
+      d.textContent = `נסרק ${it.qty} פעמים · אחרונה: ${fmtStamp(it.lastScannedAt)}`; info.appendChild(d); }
     if (it.note){ const n = document.createElement("div"); n.className = "note"; n.textContent = "📝 " + it.note; info.appendChild(n); }
     const q = document.createElement("div"); q.className = "qty";
     const minus = document.createElement("button"); minus.textContent = "−"; minus.onclick = () => setQty(it, it.qty - 1);
@@ -223,14 +234,14 @@ function render(){
     const plus = document.createElement("button"); plus.textContent = "+"; plus.onclick = () => setQty(it, it.qty + 1);
     q.append(minus, val, plus);
     const more = document.createElement("button"); more.className = "more"; more.textContent = "✎";
-    more.setAttribute("aria-label", "Note or delete"); more.onclick = () => itemMenu(it);
+    more.setAttribute("aria-label", "הערה או מחיקה"); more.onclick = () => itemMenu(it);
     li.append(info, q, more);
     ul.appendChild(li);
   });
   flashId = null;
   const total = list.items.reduce((s, i) => s + i.qty, 0);
-  $("#countText").textContent = `${list.items.length} barcode${list.items.length === 1 ? "" : "s"}`;
-  $("#totalText").textContent = `Total qty: ${total}`;
+  $("#countText").textContent = `${list.items.length} פריטים`;
+  $("#totalText").textContent = `סה״כ סריקות: ${total}`;
   $("#setupNote").classList.toggle("hidden", !!CONFIG.SHEET_URL);
   updateStatus();
 }
@@ -238,7 +249,7 @@ function render(){
 /* ---------- lists ---------- */
 $("#listSel").onchange = e => { state.current = e.target.value; save(); render(); };
 $("#newList").onclick = () => {
-  const name = prompt("Name for the new list:", defaultListName());
+  const name = prompt("שם לרשימה החדשה:", defaultListName());
   if (name === null) return;
   const l = newListObj(name.trim() || defaultListName());
   state.lists.unshift(l); state.current = l.id; save(); render();
@@ -246,19 +257,19 @@ $("#newList").onclick = () => {
 $("#listMenu").onclick = () => {
   const list = cur();
   const choice = prompt(
-    `List: ${list.name}\n\n1 = Rename list\n2 = Delete list\n3 = Set your name (shown in the sheet)` +
-    (state.name ? ` – now "${state.name}"` : ""), "");
+    `רשימה: ${list.name}\n\n1 = שינוי שם הרשימה\n2 = מחיקת הרשימה\n3 = השם שלך (יופיע בגיליון)` +
+    (state.name ? ` – כרגע "${state.name}"` : ""), "");
   if (choice === "1"){
-    const n = prompt("New name:", list.name);
+    const n = prompt("שם חדש:", list.name);
     if (n && n.trim()){ list.name = n.trim(); list.items.forEach(touch); save(); render(); scheduleSync(); }
   } else if (choice === "2"){
-    if (!confirm(`Delete "${list.name}" and its ${list.items.length} barcodes?`)) return;
+    if (!confirm(`למחוק את "${list.name}" ואת ${list.items.length} הפריטים שבה?`)) return;
     list.items.forEach(i => state.deleted.push(i.id));
     state.lists = state.lists.filter(l => l !== list);
     if (!state.lists.length) state.lists.push(newListObj(defaultListName()));
     state.current = state.lists[0].id; save(); render(); scheduleSync();
   } else if (choice === "3"){
-    const n = prompt("Your name:", state.name || "");
+    const n = prompt("השם שלך:", state.name || "");
     if (n !== null){ state.name = n.trim(); state.lists.forEach(l => l.items.forEach(touch)); save(); render(); scheduleSync(); }
   }
 };
@@ -267,7 +278,7 @@ $("#listMenu").onclick = () => {
 $("#manualForm").onsubmit = e => {
   e.preventDefault();
   const inp = $("#manualInput");
-  if (addCode(inp.value, "Manual")){ toast("Added"); inp.value = ""; }
+  if (addCode(inp.value, "Manual")){ toast("נוסף"); inp.value = ""; }
 };
 
 /* ---------- scanner ---------- */
@@ -293,16 +304,22 @@ function onScan(text, result){
   let fmt = "";
   try{ fmt = result.result.format.formatName; }catch(e){}
   const it = addCode(text, fmt);
-  beep(); if (navigator.vibrate) navigator.vibrate(80);
   const msg = $("#scanMsg");
-  msg.className = "ok";
-  msg.textContent = `✓ ${text}   (qty ${it.qty})`;
+  if (it.qty > 1){
+    beep(); setTimeout(beep, 160); if (navigator.vibrate) navigator.vibrate([80, 60, 80]);
+    msg.className = "warn";
+    msg.textContent = `⚠ ${text} כבר נסרק – זו הסריקה ה-${it.qty}`;
+  } else {
+    beep(); if (navigator.vibrate) navigator.vibrate(80);
+    msg.className = "ok";
+    msg.textContent = `✓ ${text} · ${fmtTime(it.scannedAt)}`;
+  }
 }
 $("#scanBtn").onclick = async () => {
   try{ audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); }catch(e){}
   $("#scanView").hidden = false;
-  const msg = $("#scanMsg"); msg.className = ""; msg.textContent = "Point the camera at a barcode";
-  if (typeof Html5Qrcode === "undefined"){ msg.textContent = "Scanner didn't load – check your internet, or type the code."; return; }
+  const msg = $("#scanMsg"); msg.className = ""; msg.textContent = "כוונו את המצלמה לברקוד של מספר האספקה או החבילה הזרה";
+  if (typeof Html5Qrcode === "undefined"){ msg.textContent = "הסורק לא נטען – בדקו את החיבור לאינטרנט או הקלידו את המספר."; return; }
   scanner = new Html5Qrcode("reader", { verbose:false, formatsToSupport: formats(),
     experimentalFeatures: { useBarCodeDetectorIfSupported: true } });
   try{
@@ -311,8 +328,8 @@ $("#scanBtn").onclick = async () => {
                                      height: Math.max(60, Math.floor(Math.min(h * 0.45, w * 0.6))) }) },
       onScan, () => {});
   }catch(e){
-    msg.textContent = "Camera not available (" + (e && e.message ? e.message : e) +
-      "). Use “Take photo”, or close and type the code.";
+    msg.textContent = "אין גישה למצלמה (" + (e && e.message ? e.message : e) +
+      "). השתמשו ב״צילום״, או סגרו והקלידו את המספר.";
   }
 };
 async function closeScanner(){
@@ -333,7 +350,7 @@ $("#photoInput").onchange = async e => {
     const text = await tmp.scanFile(f, false);
     onScan(text, null);
   }catch(err){
-    msg.className = ""; msg.textContent = "No barcode found in the photo – try closer, with good light.";
+    msg.className = ""; msg.textContent = "לא נמצא ברקוד בתמונה – נסו מקרוב יותר ובתאורה טובה.";
   }finally{ try{ tmp.clear(); }catch(e){} }
 };
 
@@ -382,12 +399,12 @@ async function sync(){
 function updateStatus(){
   const dot = $("#status .dot"), t = $("#statusText"), n = pending();
   let color = "#cbd5d4", text;
-  if (!CONFIG.SHEET_URL){ text = "Saved on this phone only"; }
-  else if (!navigator.onLine){ color = "#fbbf24"; text = `Offline – ${n} waiting, will save when back online`; }
-  else if (syncing){ color = "#93c5fd"; text = "Saving to sheet…"; }
-  else if (lastError && n){ color = "#fca5a5"; text = `Couldn't save (${n} waiting) – retrying`; }
-  else if (n){ color = "#fbbf24"; text = `${n} waiting to save…`; }
-  else { color = "#86efac"; text = "All saved to sheet ✓"; }
+  if (!CONFIG.SHEET_URL){ text = "נשמר בטלפון הזה בלבד"; }
+  else if (!navigator.onLine){ color = "#fbbf24"; text = `אין חיבור – ${n} ממתינים, יישמרו כשהחיבור יחזור`; }
+  else if (syncing){ color = "#93c5fd"; text = "שומר בגיליון…"; }
+  else if (lastError && n){ color = "#fca5a5"; text = `השמירה נכשלה (${n} ממתינים) – מנסה שוב`; }
+  else if (n){ color = "#fbbf24"; text = `${n} ממתינים לשמירה…`; }
+  else { color = "#86efac"; text = "הכול נשמר בגיליון ✓"; }
   dot.style.background = color; t.textContent = text;
 }
 window.addEventListener("online", () => scheduleSync(0));
@@ -397,13 +414,15 @@ setInterval(() => { if (pending()) sync(); }, 30000);
 /* ---------- export ---------- */
 function safeName(s){ return (s || "scans").replace(/[\\/:*?"<>|]+/g, "-").slice(0, 60); }
 function buildXlsx(list){
-  const rows = [["Barcode", "Qty", "Note", "Scanned at", "Format"]];
+  const rows = [["מספר אספקה / חבילה", "תאריך", "שעה", "מספר סריקות", "סריקה אחרונה", "הערה", "סוג ברקוד"]];
   list.items.slice().reverse().forEach(i =>
-    rows.push([String(i.code), i.qty, i.note || "", new Date(i.scannedAt).toLocaleString(), i.format || ""]));
+    rows.push([String(i.code), fmtDate(i.scannedAt), fmtTime(i.scannedAt), i.qty,
+               i.lastScannedAt ? fmtStamp(i.lastScannedAt) : "", i.note || "", i.format || ""]));
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws["!cols"] = [{wch:20},{wch:6},{wch:28},{wch:20},{wch:12}];
+  ws["!cols"] = [{wch:22},{wch:12},{wch:10},{wch:12},{wch:20},{wch:28},{wch:12}];
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Scans");
+  wb.Workbook = { Views: [{ RTL: true }] };
+  XLSX.utils.book_append_sheet(wb, ws, "סריקות");
   const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
   return new File([buf], safeName(list.name) + ".xlsx",
     { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -416,34 +435,34 @@ function download(file){
 }
 function checkList(){
   const list = cur();
-  if (!list.items.length){ toast("This list is empty"); return null; }
-  if (typeof XLSX === "undefined"){ toast("Excel tool didn't load – check internet"); return null; }
+  if (!list.items.length){ toast("הרשימה ריקה"); return null; }
+  if (typeof XLSX === "undefined"){ toast("כלי האקסל לא נטען – בדקו את החיבור"); return null; }
   return list;
 }
 function asText(list){
-  const lines = list.items.slice().reverse().map(i => `${i.code}  ×${i.qty}${i.note ? "  (" + i.note + ")" : ""}`);
-  const total = list.items.reduce((s, i) => s + i.qty, 0);
-  return `${list.name}\n${list.items.length} barcodes, total qty ${total}\n\n${lines.join("\n")}`;
+  const lines = list.items.slice().reverse().map(i =>
+    `${i.code} | ${fmtStamp(i.scannedAt)}${i.qty > 1 ? " | ×" + i.qty : ""}${i.note ? " | " + i.note : ""}`);
+  return `${list.name}\n${list.items.length} פריטים\n\n${lines.join("\n")}`;
 }
 $("#shareBtn").onclick = async () => {
   const list = checkList(); if (!list) return;
   const file = buildXlsx(list);
   if (navigator.canShare && navigator.canShare({ files: [file] })){
     try{ await navigator.share({ files: [file], title: list.name }); }
-    catch(e){ if (e.name !== "AbortError"){ download(file); toast("Downloaded – attach it to your message"); } }
+    catch(e){ if (e.name !== "AbortError"){ download(file); toast("הקובץ הורד – צרפו אותו להודעה"); } }
   } else {
     download(file);
-    toast("Excel downloaded – attach it in Mail or WhatsApp");
+    toast("קובץ האקסל הורד – צרפו אותו במייל או בוואטסאפ");
   }
 };
 $("#dlBtn").onclick = () => { const list = checkList(); if (list) download(buildXlsx(list)); };
 $("#waBtn").onclick = () => {
-  const list = cur(); if (!list.items.length) return toast("This list is empty");
+  const list = cur(); if (!list.items.length) return toast("הרשימה ריקה");
   location.href = "https://wa.me/?text=" + encodeURIComponent(asText(list));
 };
 $("#mailBtn").onclick = () => {
-  const list = cur(); if (!list.items.length) return toast("This list is empty");
-  location.href = "mailto:?subject=" + encodeURIComponent("Scans: " + list.name) +
+  const list = cur(); if (!list.items.length) return toast("הרשימה ריקה");
+  location.href = "mailto:?subject=" + encodeURIComponent("סריקות: " + list.name) +
                   "&body=" + encodeURIComponent(asText(list));
 };
 
