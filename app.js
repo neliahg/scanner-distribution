@@ -4,7 +4,7 @@ const APP = Object.assign({ mode: "warehouse", label: "", photos: false, photoRe
 /* ================= SETTINGS (owner edits this) ================= */
 const CONFIG = {
   // Paste the Web app URL from Google Apps Script (ends with /exec):
-  SHEET_URL: "https://script.google.com/macros/s/AKfycbwm_H_4cm4yr8fexgo6WphoPPd3wViwTKbNdxHWcwpvR7NnmalIuKDnf7s-GmtmvU8h/exec",
+  SHEET_URL: "https://script.google.com/macros/s/AKfycby4e2cuRaeEqEKFlIGNyhUsQzJp4b4tGAOc1eA321hhOQzVqihT_2-hXZWOTWq2Dtt_/exec",
 };
 /* =============================================================== */
 
@@ -472,7 +472,7 @@ window.addEventListener("online", () => scheduleSync(0));
 // Tap the status line to see technical details (for troubleshooting)
 $("#status").addEventListener("click", () => {
   const q = photoQueue();
-  alert(`גרסה: 6 · דף: ${APP.mode}\nממתינים: ${pending()} (תמונות: ${q.length})\n` +
+  alert(`גרסה: 7 · דף: ${APP.mode}\nממתינים: ${pending()} (תמונות: ${q.length})\n` +
         `שגיאה אחרונה: ${lastError || "אין"}\nמקוון: ${navigator.onLine ? "כן" : "לא"}\n${navigator.userAgent}`);
 });
 window.addEventListener("offline", updateStatus);
