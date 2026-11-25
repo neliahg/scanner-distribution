@@ -3,25 +3,31 @@
  * Paste this into Extensions > Apps Script of YOUR Google Sheet,
  * then Deploy > Manage deployments > edit > New version (Execute as: Me, Who has access: Anyone).
  *
+ * Two separate pages, kept apart:
+ *   warehouse.html -> tab "Warehouse"  (scan only)
+ *   pod.html       -> tab "POD"        (scan + proof photo, saved in Drive "POD photos/<list>/")
  * One row per barcode per list. Re-scans update the Qty on the same row.
- * Photos are saved to Drive in "Scanner photos/<list name>/" and linked in the Photos column.
  */
-const SHEET_NAME = 'Scans';
+const MODES = {
+  warehouse: { sheet: 'Warehouse', photoRoot: 'Warehouse photos' },
+  pod:       { sheet: 'POD',       photoRoot: 'POD photos' }
+};
+function mode_(d) { return MODES[d && d.mode] || MODES.warehouse; }
 const HEADERS = ['Last update', 'Scanned at', 'Scanned by', 'Device', 'List',
                  'Barcode', 'Format', 'Qty', 'Note', 'Row ID', 'Photos'];
 const DATA_COLS = 10;   // columns written on each row update (Photos is kept separately)
 const ID_COL = 10;      // "Row ID"
 const BARCODE_COL = 6;  // keep as text so leading zeros survive
 const PHOTOS_COL = 11;
-const PHOTO_ROOT = 'Scanner photos';
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
     const data = JSON.parse(e.postData.contents);
-    const sh = getSheet_();
-    if (data.action === 'photo') return json_(savePhoto_(sh, data));
+    const m = mode_(data);
+    const sh = getSheet_(m.sheet);
+    if (data.action === 'photo') return json_(savePhoto_(sh, data, m));
 
     const now = new Date();
     const index = indexRows_(sh);
@@ -64,8 +70,8 @@ function doPost(e) {
   }
 }
 
-function savePhoto_(sh, d) {
-  const folder = subFolder_(rootFolder_(), d.list || 'Unsorted');
+function savePhoto_(sh, d, m) {
+  const folder = subFolder_(rootFolder_(m.photoRoot), d.list || 'Unsorted');
   // File name = the scanned number (e.g. 7290012345678.jpg); extra photos get _2, _3 ...
   const safeCode = String(d.code || 'item').replace(/[\\/:*?"<>|]+/g, '-');
   let name = safeCode + '.jpg', n = Math.max(1, Number(d.n) || 1);
@@ -95,13 +101,14 @@ function indexRows_(sh) {
   return index;
 }
 
-function rootFolder_() {
+function rootFolder_(name) {
   const props = PropertiesService.getScriptProperties();
-  const id = props.getProperty('PHOTO_ROOT_ID');
+  const key = 'FOLDER_' + name;
+  const id = props.getProperty(key);
   if (id) { try { const f = DriveApp.getFolderById(id); if (!f.isTrashed()) return f; } catch (e) {} }
-  const it = DriveApp.getRootFolder().getFoldersByName(PHOTO_ROOT);
-  const f = it.hasNext() ? it.next() : DriveApp.getRootFolder().createFolder(PHOTO_ROOT);
-  props.setProperty('PHOTO_ROOT_ID', f.getId());
+  const it = DriveApp.getRootFolder().getFoldersByName(name);
+  const f = it.hasNext() ? it.next() : DriveApp.getRootFolder().createFolder(name);
+  props.setProperty(key, f.getId());
   return f;
 }
 
@@ -113,13 +120,13 @@ function subFolder_(parent, name) {
 
 // Open the Web app URL in a browser to check it is running
 function doGet() {
-  return json_({ ok: true, message: 'Scanner endpoint is running', photos: true });
+  return json_({ ok: true, message: 'Scanner endpoint is running', photos: true, modes: Object.keys(MODES) });
 }
 
-function getSheet_() {
+function getSheet_(name) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sh = ss.getSheetByName(SHEET_NAME);
-  if (!sh) sh = ss.insertSheet(SHEET_NAME);
+  let sh = ss.getSheetByName(name);
+  if (!sh) sh = ss.insertSheet(name);
   if (sh.getLastRow() === 0) {
     sh.appendRow(HEADERS);
     sh.setFrozenRows(1);
@@ -133,8 +140,9 @@ function getSheet_() {
 
 // Run this once from the editor (select "authorize" > Run) to grant Drive access.
 function authorize() {
-  rootFolder_();
-  getSheet_();
+  rootFolder_(MODES.pod.photoRoot);
+  getSheet_(MODES.warehouse.sheet);
+  getSheet_(MODES.pod.sheet);
 }
 
 function json_(obj) {

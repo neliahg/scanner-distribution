@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c2410c">
+<title>POD – הוכחת מסירה</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="app.css?v=4">
+<style>:root{--theme:#c2410c;--tint:#fff1e6;--page:#fff6ef}</style>
+</head>
+<body>
+
+<header>
+  <div class="pagetag">📦 מסירה – POD <span class="pill">POD</span></div>
+  <div class="row">
+    <div class="grow"><select id="listSel" aria-label="רשימה נוכחית"></select></div>
+    <button class="hbtn" id="newList" aria-label="רשימה חדשה">＋ חדשה</button>
+    <button class="hbtn" id="listMenu" aria-label="אפשרויות רשימה">⋯</button>
+  </div>
+  <div id="status"><span class="dot"></span><span id="statusText"></span></div>
+</header>
+
+<main>
+  <div id="setupNote" class="setup hidden">השמירה המקוונת עדיין לא הוגדרה – הסריקות נשמרות בטלפון הזה בלבד.</div>
+  <div class="howto">סרקו את <b>מספר האספקה</b> או את <b>החבילה הזרה</b> במסירה, ואז <b>צלמו תמונת הוכחה</b>.<br>אם הברקוד לא נקרא – צלמו אותו או הקלידו את המספר ידנית.</div>
+
+  <button class="scanbtn" id="scanBtn">📷 סריקה</button>
+
+  <form class="manual row" id="manualForm" autocomplete="off">
+    <input class="grow" id="manualInput" inputmode="text" placeholder="או הקלידו מספר אספקה / חבילה…" dir="auto" enterkeyhint="done">
+    <button class="btn" type="submit">הוספה</button>
+  </form>
+
+  <div class="summary"><span id="countText"></span><span id="totalText"></span></div>
+  <ul id="items"></ul>
+</main>
+
+<footer>
+  <div class="inner">
+    <div class="row" style="margin-bottom:8px">
+      <button class="btn primary" id="shareBtn" style="flex:1">שליחת אקסל (וואטסאפ / מייל…)</button>
+    </div>
+    <div class="row">
+      <button class="btn" id="waBtn">וואטסאפ כטקסט</button>
+      <button class="btn" id="mailBtn">מייל כטקסט</button>
+      <button class="btn" id="dlBtn">הורדה</button>
+    </div>
+  </div>
+</footer>
+
+<div id="scanView" hidden>
+  <div class="scanhead">📦 מסירה – POD</div>
+  <div class="scantop">
+    <div id="counter">0</div>
+    <div class="counterlbl">פריטים ברשימה</div>
+    <div id="lastCode"></div>
+  </div>
+  <div id="reader"></div>
+  <div id="scanLog"></div>
+  <div class="scanbar">
+    <div id="scanMsg">מוכן לסריקה – כוונו לברקוד של מספר האספקה או החבילה הזרה</div>
+    <div class="row">
+      <label class="btn" style="text-align:center">📸 צילום ברקוד
+        <input id="photoInput" type="file" accept="image/*" capture="environment" hidden>
+      </label>
+      <button class="btn" id="photoForLast" disabled>🖼 תמונה לפריט</button>
+      <button class="btn" id="switchCam" hidden>🔄 מצלמה</button>
+      <button class="btn primary" id="doneBtn">סיום</button>
+    </div>
+  </div>
+</div>
+<div id="fileReader" style="display:none"></div>
+<input id="itemPhoto" type="file" accept="image/*" capture="environment" hidden>
+<div id="toast"></div>
+
+<div id="photoPrompt" class="modal" hidden>
+  <div class="sheet">
+    <div class="ptitle">נסרק – צלמו הוכחת מסירה</div>
+    <div id="ppCode"></div>
+    <button class="btn primary" id="ppTake">📸 צילום הוכחת מסירה</button>
+    <button class="btn" id="ppLater">אחר כך</button>
+  </div>
+</div>
+<script>
+window.APP = { mode: "pod", label: "מסירה – POD", photos: true, photoRequired: true };
+</script>
+<script src="app.js?v=4"></script>
+</body>
+</html>

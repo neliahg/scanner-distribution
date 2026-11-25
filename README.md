@@ -1,6 +1,10 @@
 # Scanner (POC)
 
-Scan barcodes in the browser, save to a Google Sheet, share as Excel via WhatsApp/Mail.
+Two separate pages (separate data, colors, Sheet tabs and Drive folders):
 
-- `index.html` – the app (set `SHEET_URL` near the top of the script)
-- `apps-script.gs` – paste into the Google Sheet (Extensions > Apps Script) and deploy as a Web app (Execute as: Me, Access: Anyone)
+- `warehouse.html` (blue) – deliveries that haven't left the warehouse. Scan only → Sheet tab **Warehouse**.
+- `pod.html` (orange) – proof of delivery. Scan, then a proof photo → Sheet tab **POD**, photos in Drive **POD photos/<list>/<number>.jpg**.
+- `index.html` – a simple chooser with both links.
+
+Shared code: `app.js`, `app.css`. The Sheet link (`SHEET_URL`) is at the top of `app.js`.
+`apps-script.gs` – paste into the Google Sheet (Extensions > Apps Script), run `authorize` once, and deploy as a Web app (Execute as: Me, Access: Anyone).
