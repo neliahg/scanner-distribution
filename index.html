@@ -80,6 +80,10 @@
   .howto{background:#e7f5f3;border:1px solid #b9e2dc;border-radius:12px;padding:10px 12px;font-size:15px;margin-bottom:12px}
   .howto b{color:var(--brand)}
   #scanMsg.warn{color:#fcd34d;font-weight:700}
+  .photos{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;font-size:12px}
+  .photos a,.photos span{background:#eef4f3;border-radius:6px;padding:2px 6px;color:var(--brand);text-decoration:none}
+  .photos span{color:var(--muted)}
+  .scanbar .row{flex-wrap:wrap}
   .dup{font-size:12px;color:var(--warn);font-weight:600;margin-top:2px}
 </style>
 </head>
@@ -133,15 +137,17 @@
   <div class="scanbar">
     <div id="scanMsg">מוכן לסריקה – כוונו לברקוד של מספר האספקה או החבילה הזרה</div>
     <div class="row">
-      <label class="btn" style="text-align:center">📸 צילום
+      <label class="btn" style="text-align:center">📸 צילום ברקוד
         <input id="photoInput" type="file" accept="image/*" capture="environment" hidden>
       </label>
+      <button class="btn" id="photoForLast" disabled>🖼 תמונה לפריט</button>
       <button class="btn" id="switchCam" hidden>🔄 מצלמה</button>
       <button class="btn primary" id="doneBtn">סיום</button>
     </div>
   </div>
 </div>
 <div id="fileReader" style="display:none"></div>
+<input id="itemPhoto" type="file" accept="image/*" capture="environment" hidden>
 <div id="toast"></div>
 
 <script>
@@ -208,6 +214,7 @@ function removeItem(it){
   const list = cur();
   list.items = list.items.filter(i => i !== it);
   state.deleted.push(it.id);
+  dropPhotos(it);
   save(); render(); scheduleSync();
 }
 function itemMenu(it){
@@ -253,7 +260,19 @@ function render(){
     q.append(minus, val, plus);
     const more = document.createElement("button"); more.className = "more"; more.textContent = "✎";
     more.setAttribute("aria-label", "הערה או מחיקה"); more.onclick = () => itemMenu(it);
-    li.append(info, q, more);
+    const cam = document.createElement("button"); cam.className = "more"; cam.textContent = "📷";
+    cam.setAttribute("aria-label", "צילום תמונה לפריט"); cam.onclick = () => pickPhotoFor(it);
+    if (it.photos && it.photos.length){
+      const ph = document.createElement("div"); ph.className = "photos";
+      it.photos.forEach((p, n) => {
+        if (p.url){ const a = document.createElement("a"); a.href = p.url; a.target = "_blank"; a.rel = "noopener";
+          a.textContent = `📷 תמונה ${n + 1}`; ph.appendChild(a); }
+        else { const sp = document.createElement("span");
+          sp.textContent = `📷 תמונה ${n + 1}${p.lost ? " (אבדה)" : CONFIG.SHEET_URL ? " · ממתינה" : ""}`; ph.appendChild(sp); }
+      });
+      info.appendChild(ph);
+    }
+    li.append(info, q, cam, more);
     ul.appendChild(li);
   });
   flashId = null;
@@ -282,7 +301,7 @@ $("#listMenu").onclick = () => {
     if (n && n.trim()){ list.name = n.trim(); list.items.forEach(touch); save(); render(); scheduleSync(); }
   } else if (choice === "2"){
     if (!confirm(`למחוק את "${list.name}" ואת ${list.items.length} הפריטים שבה?`)) return;
-    list.items.forEach(i => state.deleted.push(i.id));
+    list.items.forEach(i => { state.deleted.push(i.id); dropPhotos(i); });
     state.lists = state.lists.filter(l => l !== list);
     if (!state.lists.length) state.lists.push(newListObj(defaultListName()));
     state.current = state.lists[0].id; save(); render(); scheduleSync();
@@ -300,7 +319,7 @@ $("#manualForm").onsubmit = e => {
 };
 
 /* ---------- scanner ---------- */
-let scanner = null, lastCode = "", scanCooldown = false, audioCtx = null;
+let scanner = null, lastCode = "", scanCooldown = false, audioCtx = null, lastItem = null;
 let cameras = [], camIdx = -1;
 const CAM_KEY = "scanner.camera";
 function beep(){
@@ -335,6 +354,7 @@ function onScan(text, result){
   let fmt = "";
   try{ fmt = result.result.format.formatName; }catch(e){}
   const it = addCode(text, fmt);
+  lastItem = it; $("#photoForLast").disabled = false;
   const msg = $("#scanMsg");
   $("#lastCode").textContent = text;
   updateCounter();
@@ -382,7 +402,7 @@ async function startCamera(){
 $("#scanBtn").onclick = async () => {
   try{ audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); }catch(e){}
   $("#scanView").hidden = false;
-  lastCode = ""; scanCooldown = false;
+  lastCode = ""; scanCooldown = false; lastItem = null; $("#photoForLast").disabled = true;
   $("#lastCode").textContent = ""; $("#scanLog").innerHTML = ""; updateCounter();
   const msg = $("#scanMsg"); msg.className = "";
   msg.textContent = "מוכן לסריקה – כוונו לברקוד של מספר האספקה או החבילה הזרה";
@@ -427,12 +447,97 @@ $("#photoInput").onchange = async e => {
   }finally{ try{ tmp.clear(); }catch(e){} }
 };
 
+/* ---------- photos (kept in IndexedDB until uploaded to Drive) ---------- */
+const idb = (() => {
+  let dbp;
+  const db = () => dbp || (dbp = new Promise((res, rej) => {
+    const r = indexedDB.open("scanner-photos", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("p");
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  }));
+  const tx = (mode, fn) => db().then(d => new Promise((res, rej) => {
+    const t = d.transaction("p", mode); const r = fn(t.objectStore("p"));
+    t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error);
+  }));
+  return { get: k => tx("readonly", s => s.get(k)),
+           put: (k, v) => tx("readwrite", s => s.put(v, k)),
+           del: k => tx("readwrite", s => s.delete(k)) };
+})();
+async function compressImage(file, max = 1600, q = 0.8){
+  const url = URL.createObjectURL(file);
+  try{
+    const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
+    const sc = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * sc); c.height = Math.round(img.naturalHeight * sc);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise(res => c.toBlob(b => res(b || file), "image/jpeg", q));
+  }catch(e){ return file; }
+  finally{ URL.revokeObjectURL(url); }
+}
+let photoTarget = null;
+function pickPhotoFor(it){ photoTarget = it; $("#itemPhoto").click(); }
+async function addPhoto(it, file){
+  try{
+    const blob = await compressImage(file);
+    const pid = uid();
+    await idb.put(pid, blob);
+    it.photos = it.photos || [];
+    it.photos.push({ pid, takenAt: new Date().toISOString() });
+    save(); render(); scheduleSync(300);
+    toast(`התמונה נשמרה (${it.code})`);
+  }catch(e){ toast("לא ניתן לשמור את התמונה בטלפון"); }
+}
+function dropPhotos(it){ (it.photos || []).forEach(p => { if (!p.url) idb.del(p.pid).catch(() => {}); }); }
+function photoQueue(){
+  const q = [];
+  state.lists.forEach(l => l.items.forEach(i => (i.photos || []).forEach(p => { if (!p.url && !p.lost) q.push({ l, i, p }); })));
+  return q;
+}
+const blobToBase64 = b => new Promise((res, rej) => {
+  const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(b);
+});
+async function uploadPhotos(){
+  for (const { l, i, p } of photoQueue()){
+    if (!i.sv) continue;                       // row must reach the sheet first
+    const blob = await idb.get(p.pid);
+    if (!blob){ p.lost = true; save(); continue; }
+    const res = await fetch(CONFIG.SHEET_URL, { method: "POST", body: JSON.stringify({
+      action: "photo", id: i.id, photoId: p.pid, n: i.photos.indexOf(p) + 1, list: l.name, code: i.code,
+      mime: blob.type || "image/jpeg", takenAt: p.takenAt, data: await blobToBase64(blob) }) });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || "Photo error");
+    if (!j.url) throw new Error("צריך לעדכן את הסקריפט בגיליון כדי לשמור תמונות");
+    p.url = j.url; save();
+    idb.del(p.pid).catch(() => {});
+    render();
+  }
+}
+$("#itemPhoto").onchange = e => {
+  const f = e.target.files && e.target.files[0]; e.target.value = "";
+  const it = photoTarget; photoTarget = null;
+  if (f && it) addPhoto(it, f);
+  resumeCamera();
+};
+$("#itemPhoto").addEventListener("cancel", () => { photoTarget = null; resumeCamera(); });
+$("#photoForLast").onclick = () => {
+  if (!lastItem) return;
+  pickPhotoFor(lastItem);                    // open the picker first (needs the tap)
+  pauseCamera();
+};
+$("#photoInput").addEventListener("click", pauseCamera);
+$("#photoInput").addEventListener("cancel", resumeCamera);
+function pauseCamera(){ if (scanner && scanner.isScanning) scanner.stop().catch(() => {}); }
+function resumeCamera(){
+  setTimeout(() => { if (scanner && !$("#scanView").hidden && !scanner.isScanning) startCamera(); }, 300);
+}
+
 /* ---------- online save to Google Sheet ---------- */
 let syncing = false, syncTimer = null, lastError = "";
 function pending(){
   let n = 0;
   state.lists.forEach(l => l.items.forEach(i => { if (i.v !== i.sv) n++; }));
-  return n + state.deleted.length;
+  return n + state.deleted.length + photoQueue().length;
 }
 function scheduleSync(delay = 800){
   clearTimeout(syncTimer);
@@ -449,18 +554,22 @@ async function sync(){
     }
   }));
   const deleted = state.deleted.slice();
-  if (!rows.length && !deleted.length){ updateStatus(); return; }
+  if (!rows.length && !deleted.length && !photoQueue().length){ updateStatus(); return; }
   syncing = true; updateStatus();
   let ok = false;
   try{
-    // No custom headers -> simple request, which Google Apps Script accepts from any website.
-    const res = await fetch(CONFIG.SHEET_URL, { method: "POST",
-      body: JSON.stringify({ device: state.device, name: state.name, rows, deleted }) });
-    const j = await res.json();
-    if (!j.ok) throw new Error(j.error || "Sheet error");
-    snap.forEach(([i, v]) => { i.sv = v; });
-    state.deleted = state.deleted.filter(id => !deleted.includes(id));
-    save(); lastError = ""; ok = true;
+    if (rows.length || deleted.length){
+      // No custom headers -> simple request, which Google Apps Script accepts from any website.
+      const res = await fetch(CONFIG.SHEET_URL, { method: "POST",
+        body: JSON.stringify({ device: state.device, name: state.name, rows, deleted }) });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || "Sheet error");
+      snap.forEach(([i, v]) => { i.sv = v; });
+      state.deleted = state.deleted.filter(id => !deleted.includes(id));
+      save();
+    }
+    await uploadPhotos();
+    lastError = ""; ok = true;
   }catch(e){
     lastError = e.message || String(e);
   }finally{
@@ -487,12 +596,13 @@ setInterval(() => { if (pending()) sync(); }, 30000);
 /* ---------- export ---------- */
 function safeName(s){ return (s || "scans").replace(/[\\/:*?"<>|]+/g, "-").slice(0, 60); }
 function buildXlsx(list){
-  const rows = [["מספר אספקה / חבילה", "תאריך", "שעה", "מספר סריקות", "סריקה אחרונה", "הערה", "סוג ברקוד"]];
+  const rows = [["מספר אספקה / חבילה", "תאריך", "שעה", "מספר סריקות", "סריקה אחרונה", "הערה", "סוג ברקוד", "תמונות"]];
   list.items.slice().reverse().forEach(i =>
     rows.push([String(i.code), fmtDate(i.scannedAt), fmtTime(i.scannedAt), i.qty,
-               i.lastScannedAt ? fmtStamp(i.lastScannedAt) : "", i.note || "", i.format || ""]));
+               i.lastScannedAt ? fmtStamp(i.lastScannedAt) : "", i.note || "", i.format || "",
+               (i.photos || []).map(p => p.url || "ממתינה להעלאה").join("\n")]));
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws["!cols"] = [{wch:22},{wch:12},{wch:10},{wch:12},{wch:20},{wch:28},{wch:12}];
+  ws["!cols"] = [{wch:22},{wch:12},{wch:10},{wch:12},{wch:20},{wch:28},{wch:12},{wch:50}];
   const wb = XLSX.utils.book_new();
   wb.Workbook = { Views: [{ RTL: true }] };
   XLSX.utils.book_append_sheet(wb, ws, "סריקות");
