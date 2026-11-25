@@ -343,7 +343,11 @@ async function addPhoto(it, file){
     it.photos.push({ pid, takenAt: new Date().toISOString() });
     save(); render(); scheduleSync(300);
     toast(`התמונה נשמרה (${it.code})`);
-  }catch(e){ toast("לא ניתן לשמור את התמונה בטלפון"); }
+  }catch(e){
+    lastError = "photo-store: " + (e && (e.name + " " + e.message) || e);
+    toast("לא ניתן לשמור את התמונה בטלפון – הקישו על שורת הסטטוס לפרטים");
+    updateStatus();
+  }
 }
 function dropPhotos(it){ (it.photos || []).forEach(p => { if (!p.url) idb.del(p.pid).catch(() => {}); }); }
 function photoQueue(){
@@ -446,7 +450,7 @@ async function sync(){
     await uploadPhotos();
     lastError = ""; ok = true;
   }catch(e){
-    lastError = e.message || String(e);
+    lastError = (e && e.name ? e.name + ": " : "") + (e && e.message || String(e));
   }finally{
     syncing = false;
     render();
@@ -465,6 +469,12 @@ function updateStatus(){
   dot.style.background = color; t.textContent = text;
 }
 window.addEventListener("online", () => scheduleSync(0));
+// Tap the status line to see technical details (for troubleshooting)
+$("#status").addEventListener("click", () => {
+  const q = photoQueue();
+  alert(`גרסה: 6 · דף: ${APP.mode}\nממתינים: ${pending()} (תמונות: ${q.length})\n` +
+        `שגיאה אחרונה: ${lastError || "אין"}\nמקוון: ${navigator.onLine ? "כן" : "לא"}\n${navigator.userAgent}`);
+});
 window.addEventListener("offline", updateStatus);
 setInterval(() => { if (pending()) sync(); }, 30000);
 
